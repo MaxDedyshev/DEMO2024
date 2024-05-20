@@ -1,0 +1,209 @@
+HQ-R:
+configure
+hostname HQ-R
+exit
+commit
+conmfirm
+
+BR-R:
+configure
+hostname BR-R
+exit
+commit
+conmfirm
+
+HQ-SRV:
+hostnamectl set-hostname HQ-SRV
+exec bash
+
+BR-SRV:
+hostnamectl set-hostname BR-SRV
+exec bash
+
+HQ-CLI:
+su 
+hostnamectl set-hostname HQ-CLI
+exec bash
+
+CLI
+su 
+hostnamectl set-hostname CLI
+exec bash
+-
+CLI
+через интерфейс!!!! ip 3.3.3.2 маска 30 шлюз 3.3.3.1 днс 8.8.8.8
+
+HQ-R
+configure
+interface gigabitethernet 1/0/1
+ip address 1.1.1.2/30
+ip firewall disable
+exit
+commit
+confirm
+
+inerface gigabitethernet 1/0/2
+ip address 192.168.101.2/26
+ip firewall disable
+exit
+commit
+confirm
+
+BR-R
+configure 
+interface gigabitethernet 1/0/1
+ip address 2.2.2.2/30
+ip firewall disable
+exit
+commit
+confirm
+
+interface gigabitethernet 1/0/2
+ip address 172.16.100.1/28
+ip firewall disable
+exit
+comit
+confirm
+
+BR-SRV
+echo 172.16.100.2/28 > etc/net/ifaces/ens192/ipv4address
+echo via default 172.168.100.1 > etc/net/ifaces/ens192/ipv4route
+echo 192.168.100.2 /etc/nwet/ifaces/ens192/resolv.conf
+systemctl restart network
+--
+HQ-R
+configure
+object-group network LOCAL_NET
+ip address-range 192.168.100.1-192.168.100.62
+exit
+object-group PUBLIC_POOL
+ip address 1.1.1.2.
+exit
+nat source 
+pool TRANSLATE_ADDRESS
+ip address 1.1.1.2
+exit
+ruleset SNAT
+to interface gigabitethernet 1/0/1
+rule 1
+match source-address LOCAL_NET
+action source-nat pool TRANSLATE_ADDRESS
+enable
+exit
+exit
+ip route 0.0.0.0/0 1.1.1.1
+commit
+confirm
+ping 8.8.8.8
+ping 8.8.8.8 source 192.168.100.1
+show ip nat translation
+
+BR-R
+configure
+object-group network LOCAL_NET
+ip address-range 172.16.100.1-172.16.100.14
+exit
+PUBLIC_POOL 
+ip address 2.2.2.2
+exit
+nat source
+pool TRANSLATE_ADDRESS 
+ip address 2.2.2.2
+exit
+SNAT
+to interface gigabitethernet 1/0/1
+rule 1
+match source-address LOCAL_NET
+action source-nat pool TRANSLATE_ADDRESS
+
+HQ-R:
+tunnel gre 10
+ip firewall disable
+local address 1.1.1.2
+remote address 2.2.2.2
+ip address 10.10.10./30
+mtu 1426
+ttl 18
+enable
+exit
+commit
+confirm
+
+BR-R:
+tunnel gre 10
+ip firewall disable
+local address 2.2.2.2
+remote address 1.1.1.1
+ip address 10.10.10./30
+mtu 1426
+ttl 18
+enable
+exit
+commit
+confirm
+
+
+HQ-R:
+configure
+router ospf 10
+router-id 1.1.1.1
+area 1.1.1.1
+network 192.168.100.0/26
+enable
+exir
+enable
+
+
+tunnel gre 10
+ip ospf instance 10
+ip ospf area 1.1.1.1
+ip ospf
+exit
+commit
+confirm
+
+
+BR-R:
+
+router ospf 10
+router-id 2.2.2.2
+area 2.2.2.2
+network 172.16.100.0.20
+enable
+exit
+enable
+
+
+tunnel gre 10
+ip ospf instance 10
+ip ospf area 2.2.2.2
+ip ospf
+exit
+commit
+confirm
+
+show ospf neighbours
+sh ip route 
+
+
+HQ-R:
+ip dhcp-server
+ip dhch-server pool LAN_HQ
+network 192.168.100.0/26
+address-range 192.168.100.1-192.168.100.62
+excluded-address-range 192.168.100.1
+excluded-address-range 192.168.100.10
+address 192.168.100.2 mac-address *БРАТЬ ИЗ HQ-SRV КОМАНДОЙ ip a*
+default-router 192.168.100.1
+dns-server 192.168.100.2
+exit
+commit
+confirm
+ 
+HQ-SRV:
+vim /etc/net/ifaces/ens192/options
+изменить на  
+BOOTPROTO=dhcp
+SYSTEMD_BOOTPOTO=dhcp
+
+dhcpcd на HQ-SRV
