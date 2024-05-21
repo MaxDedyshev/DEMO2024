@@ -1,0 +1,28 @@
+HQ-R
+configure
+object-group service SRV_SSH
+port 2222
+ex
+object-group network SERVER_IP
+ip address 192.168.100.2
+exit
+nat destination
+pool SERVER_POOL
+ip address 192.168.100.2
+ip port 22
+exit
+ruleset DNAT
+from interface gigabitethernet 1/0/1
+rule 1
+match destination-address PUBLIC_POOL
+match protocol tcp
+match destiantion-port SRV_SSH
+action destination-nat pool SERVER_POOL
+enable
+exit
+commit
+confirm
+
+CLI
+su
+ssh -p 2222 user@1.1.1.2
